@@ -1,0 +1,8 @@
+bot:
+  name: SuckBot
+
+irc:
+  host: example.com
+  port: 6667
+  channels:
+    - "#suckbot"

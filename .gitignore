@@ -55,3 +55,7 @@ coverage.xml
 # Sphinx documentation
 docs/_build/
 
+# SuckBot specific files
+
+# only include default YAML, not actual, in-use YAML
+config.yaml
