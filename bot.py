@@ -207,4 +207,4 @@ host = 'kamigamiguild.com'
 port = 6667
 nick = 'SuckBot'
 
-run_bot(MarkovBot, host, port, nick, ['#testing'])
+run_bot(MarkovBot, host, port, nick, ['#general'])
