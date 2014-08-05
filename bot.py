@@ -5,16 +5,26 @@ import itertools
 import urllib2
 import sys
 from BeautifulSoup import BeautifulSoup
-<<<<<<< HEAD
-import lxml.html
-=======
 import yaml
+import os.path
 #import lxml.html
->>>>>>> 13ca67332472e685e8dcef9e504fde77f205e141
 
 from irc import IRCBot, run_bot
 
 g_chain_length = 2
+
+config_file = "./config.yaml"
+
+if not os.path.isfile(config_file):
+  print "config.yaml does not exist.  Copy config.yaml.default to config.yaml and update settings"
+  sys.exit(1)
+
+config = yaml.load(file(config_file))
+
+host = config['irc']['host']
+port = config['irc']['port']
+chans = config['irc']['channels']
+nick = config['bot']['name']
 
 class MarkovBot(IRCBot):
     """
@@ -208,19 +218,5 @@ class MarkovBot(IRCBot):
             ('.*', self.log),
         )
 
-import os.path
-
-config_file = "./config.yaml"
-
-if not os.path.isfile(config_file):
-  print "config.yaml does not exist.  Copy config.yaml.default to config.yaml and update settings"
-  sys.exit(1)
-
-config = yaml.load(file(config_file))
-
-host = config['irc']['host']
-port = config['irc']['port']
-chans = config['irc']['channels']
-nick = config['bot']['name']
 
 run_bot(MarkovBot, host, port, nick, chans)
