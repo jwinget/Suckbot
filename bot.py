@@ -4,7 +4,7 @@ import string
 import itertools
 import urllib2
 from BeautifulSoup import BeautifulSoup
-#import lxml.html
+import lxml.html
 
 from irc import IRCBot, run_bot
 
@@ -69,7 +69,7 @@ class MarkovBot(IRCBot):
     def get_pagetitle(self, url):
         try:
             soup = BeautifulSoup(urllib2.urlopen(url))
-            title = soup.title.string
+            title = soup.title.string.encode('utf-8', errors='ignore')
             #t = lxml.html.parse(url)
             #title = t.find(".//title").text.encode('utf-8', errors='ignore')
         except:
@@ -207,4 +207,4 @@ host = 'kamigamiguild.com'
 port = 6667
 nick = 'SuckBot'
 
-run_bot(MarkovBot, host, port, nick, ['#general'])
+run_bot(MarkovBot, host, port, nick, ['#testing'])
