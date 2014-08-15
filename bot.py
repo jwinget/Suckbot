@@ -7,6 +7,8 @@ import sys
 from BeautifulSoup import BeautifulSoup
 import yaml
 import os.path
+import requests
+import json
 #import lxml.html
 
 from irc import IRCBot, run_bot
@@ -100,6 +102,20 @@ class MarkovBot(IRCBot):
             title = 'No title'
         return title
 
+    def random_image(self, msg):
+        ''' Return a random google image '''
+        gurl = 'http://ajax.googleapis.com/ajax/services/search/images'
+        payload = {'v': '1.0', 'rsz': '8'}
+        words = msg.split()
+        search_words = words[words.index('me')+1:]
+        search_str = ' '.join(search_words)
+        payload['q'] = search_str
+        r = requests.get(gurl, params=payload)
+        parsed = json.loads(r.text)
+        results = (parsed['responseData']['results'])
+        ind = random.randint(0,len(results))
+        return (results[ind][u'url'])
+
     def generate_message(self, seed):
         key = seed
         
@@ -167,6 +183,10 @@ class MarkovBot(IRCBot):
         if message.endswith('?'):
             message = message[:-1]
         
+        if 'image me' in message:
+            iurl = self.random_image(message)
+            return iurl
+
         if 'http' in message:
             say_something = True
             parts = message.split()
