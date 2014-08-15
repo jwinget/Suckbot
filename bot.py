@@ -40,6 +40,7 @@ class MarkovBot(IRCBot):
     stop_word = '\n'
     brainfile = 'combined.txt'
     brain = {}
+    sentence_lengths = []
     
     def __init__(self, *args, **kwargs):
         super(MarkovBot, self).__init__(*args, **kwargs)
@@ -71,6 +72,8 @@ class MarkovBot(IRCBot):
     def parse_brain(self, brainfile):
         with open(brainfile, 'rb') as f:
             for line in f:
+                word_len = len(line.split())
+                self.sentence_lengths.append(word_len)
                 for words in self.split_message(self.sanitize_message(line)):
                     # grab everything but the last word
                     key = self.separator.join(words[:-1])
@@ -81,6 +84,11 @@ class MarkovBot(IRCBot):
                             self.brain[key].append(words[-1])
                     except KeyError:
                         self.brain[key] = [words[-1]]
+
+    def sentence_median(self, sentence_lengths):
+        sorts = sorted(sentence_lengths)
+        length = len(sorts)
+        return sorts[length / 2]
 
     def get_pagetitle(self, url):
         try:
@@ -98,8 +106,9 @@ class MarkovBot(IRCBot):
         # keep a list of words we've seen
         gen_words = []
         
-        # only follow the chain so far, up to <max words>
-        for i in xrange(self.max_words):
+        # only follow the chain so far, with some randomness thrown in
+        median = self.sentence_median(self.sentence_lengths)
+        for i in xrange(median + random.randint(1,5)):
         
             # split the key on the separator to extract the words -- the key
             # might look like "this\x01is" and split out into ['this', 'is']
