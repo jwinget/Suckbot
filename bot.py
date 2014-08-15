@@ -98,7 +98,7 @@ class MarkovBot(IRCBot):
     def random_image(self, msg, num):
         ''' Return a random google image '''
         gurl = 'http://ajax.googleapis.com/ajax/services/search/images'
-        payload = {'v': '1.0', 'rsz': '8'}
+        payload = {'v': '1.0', 'rsz': '8', 'start': 8 * random.randrange(5)}
         words = msg.split()
         search_words = words[words.index('me')+1:]
         search_str = ' '.join(search_words)
@@ -187,8 +187,10 @@ class MarkovBot(IRCBot):
 
         if 'meow bomb' in message:
             msg = 'image me meow'
-            iurl = self.random_image(msg, 5)
-            return iurl
+            urls = []
+            for i in range(0,5):
+                urls.append(self.random_image(msg,1))
+            return ' '.join(urls)
 
         if 'http' in message:
             say_something = True
