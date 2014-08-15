@@ -9,6 +9,7 @@ import yaml
 import os.path
 import requests
 import json
+
 #import lxml.html
 
 from irc import IRCBot, run_bot
@@ -102,7 +103,7 @@ class MarkovBot(IRCBot):
             title = 'No title'
         return title
 
-    def random_image(self, msg):
+    def random_image(self, msg, num):
         ''' Return a random google image '''
         gurl = 'http://ajax.googleapis.com/ajax/services/search/images'
         payload = {'v': '1.0', 'rsz': '8'}
@@ -111,10 +112,16 @@ class MarkovBot(IRCBot):
         search_str = ' '.join(search_words)
         payload['q'] = search_str
         r = requests.get(gurl, params=payload)
-        parsed = json.loads(r.text)
-        results = (parsed['responseData']['results'])
-        ind = random.randint(0,len(results))
-        return (results[ind][u'url'])
+        try:
+            parsed = json.loads(r.text)
+            results = (parsed['responseData']['results'])
+            urls = []
+            random.shuffle(results)
+            for i in range(0,num):
+                urls.append(results[i][u'url'])
+            return ' '.join(urls)
+        except:
+            return 'Error grabbing images'
 
     def generate_message(self, seed):
         key = seed
@@ -184,7 +191,12 @@ class MarkovBot(IRCBot):
             message = message[:-1]
         
         if 'image me' in message:
-            iurl = self.random_image(message)
+            iurl = self.random_image(message, 1)
+            return iurl
+
+        if 'meow bomb' in message:
+            msg = 'image me meow'
+            iurl = self.random_image(msg, 5)
             return iurl
 
         if 'http' in message:
