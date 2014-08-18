@@ -185,6 +185,12 @@ class MarkovBot(IRCBot):
             iurl = self.random_image(message, 1)
             return iurl
 
+        if 'random image' in message:
+            # pick random chain from brain
+            random_msg = ' '.join(random.choice(self.brain.keys()).split(self.separator))
+            # image search on that
+            return random_msg + ": " + self.random_image("image me " + random_msg, 1)
+
         if 'meow bomb' in message:
             msg = 'image me meow'
             urls = []
