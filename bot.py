@@ -95,25 +95,39 @@ class MarkovBot(IRCBot):
             title = 'No title'
         return title
 
-    def random_image(self, msg, num):
+    def random_image(self, msg, fetch=True):
         ''' Return a random google image '''
-        gurl = 'http://ajax.googleapis.com/ajax/services/search/images'
-        payload = {'v': '1.0', 'rsz': '8', 'start': 8 * random.randrange(5)}
-        words = msg.split()
-        search_words = words[words.index('me')+1:]
-        search_str = ' '.join(search_words)
-        payload['q'] = search_str
-        r = requests.get(gurl, params=payload)
-        try:
-            parsed = json.loads(r.text)
-            results = (parsed['responseData']['results'])
-            urls = []
-            random.shuffle(results)
-            for i in range(0,num):
-                urls.append(results[i][u'url'])
-            return ' '.join(urls)
-        except:
-            return 'Error grabbing images'
+        attempts = 0
+        while attempts < 5:
+            attempts += 1
+            gurl = 'http://ajax.googleapis.com/ajax/services/search/images'
+            payload = {'v': '1.0', 'rsz': '8', 'start': 8 * random.randrange(5)}
+            words = msg.split()
+            search_words = words[words.index('me')+1:]
+            search_str = ' '.join(search_words)
+            payload['q'] = search_str
+            r = requests.get(gurl, params=payload)
+            try:
+                parsed = json.loads(r.text)
+                results = (parsed['responseData']['results'])
+                urls = []
+                random.shuffle(results)
+                # TODO: Look at grabbing unescaped URL and trimming hashes from URL
+                # Might eliminate some invalid extension false positives
+                url = results[0][u'url']
+                valid_suffixes = ('.gif','.jpg','.jpeg','.png')
+                if not url.lower().endswith(valid_suffixes):
+                    continue;
+                if fetch:
+                  response = requests.head(url)
+                  if response.status_code != 200:
+                      print "non-200 response, got "+response.getcode()+": "+url
+                      continue
+                return url
+            except:
+                e = sys.exc_info()[0]
+                print "Error grabbing images: %s" % e
+        return 'Unable to find image'
 
     def generate_message(self, seed):
         key = seed
@@ -182,20 +196,20 @@ class MarkovBot(IRCBot):
             message = message[:-1]
         
         if 'image me' in message:
-            iurl = self.random_image(message, 1)
+            iurl = self.random_image(message)
             return iurl
 
         if 'random image' in message:
             # pick random chain from brain
             random_msg = ' '.join(random.choice(self.brain.keys()).split(self.separator))
             # image search on that
-            return random_msg + ": " + self.random_image("image me " + random_msg, 1)
+            return random_msg + ": " + self.random_image("image me " + random_msg)
 
         if 'meow bomb' in message:
             msg = 'image me meow'
             urls = []
             for i in range(0,5):
-                urls.append(self.random_image(msg,1))
+                urls.append(self.random_image(msg,False))
             return ' '.join(urls)
 
         if 'http' in message:
