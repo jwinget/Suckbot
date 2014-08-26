@@ -95,17 +95,22 @@ class MarkovBot(IRCBot):
             title = 'No title'
         return title
 
-    def random_image(self, msg, fetch=True):
+    def random_image(self, msg, fetch=True, rsz=8, pages=5, rand_result=True):
         ''' Return a random google image '''
-        attempts = 0
-        while attempts < 5:
+        max_attempts = 5
+        if rand_result:
+            attempts = 0
+        else:
+            attempts = max_attempts - 1
+        while attempts < max_attempts:
             attempts += 1
             gurl = 'http://ajax.googleapis.com/ajax/services/search/images'
-            payload = {'v': '1.0', 'rsz': '8', 'start': 8 * random.randrange(5)}
-            words = msg.split()
-            search_words = words[words.index('me')+1:]
-            search_str = ' '.join(search_words)
-            payload['q'] = search_str
+            payload = {'v': '1.0', 'rsz': rsz}
+            if rand_result:
+                payload['start'] = rsz * random.randrange(pages)
+            else:
+                payload['start'] = rsz * pages
+            payload['q'] = msg
             r = requests.get(gurl, params=payload)
             try:
                 parsed = json.loads(r.text)
@@ -196,20 +201,28 @@ class MarkovBot(IRCBot):
             message = message[:-1]
         
         if 'image me' in message:
-            iurl = self.random_image(message)
+            iurl = self.random_image(message.replace('image me',''))
             return iurl
+
+        if 'image first' in message:
+            iurl = self.random_image(message.replace('image first',''), rsz=1, pages=0, rand_result=False)
+            return iurl
+
+        nth = re.compile('^image nth (\d+) (.*)')
+        matches = nth.search(message)
+        if matches:
+            return self.random_image(matches.group(2), rsz=1, pages=int(matches.group(1))-1, rand_result=False)
 
         if 'random image' in message:
             # pick random chain from brain
             random_msg = ' '.join(random.choice(self.brain.keys()).split(self.separator))
             # image search on that
-            return random_msg + ": " + self.random_image("image me " + random_msg)
+            return random_msg + ": " + self.random_image(random_msg)
 
         if 'meow bomb' in message:
-            msg = 'image me meow'
             urls = []
             for i in range(0,5):
-                urls.append(self.random_image(msg,False))
+                urls.append(self.random_image("meow",fetch=False))
             return ' '.join(urls)
 
         if 'http' in message:
