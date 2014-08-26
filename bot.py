@@ -95,8 +95,9 @@ class MarkovBot(IRCBot):
             title = 'No title'
         return title
 
-    def random_image(self, msg, fetch=True, rsz=8, pages=5, rand_result=True):
+    def random_image(self, msg, fetch=True, rsz=8, pages=5, rand_result=True, nsfw=False):
         ''' Return a random google image '''
+        print "Random Image: msg = %s, fetch = %s, nsfw = %s, rsz = %s, pages = %s, rand = %s" % (msg, fetch, nsfw, rsz, pages, rand_result)
         max_attempts = 5
         if rand_result:
             attempts = 0
@@ -110,6 +111,8 @@ class MarkovBot(IRCBot):
                 payload['start'] = rsz * random.randrange(pages)
             else:
                 payload['start'] = rsz * pages
+            if nsfw:
+                payload['safe'] = 'off'
             payload['q'] = msg
             r = requests.get(gurl, params=payload)
             try:
@@ -200,9 +203,19 @@ class MarkovBot(IRCBot):
         if message.endswith('?'):
             message = message[:-1]
         
+        if 'nsfw image me' in message:
+            iurl = self.random_image(message.replace('nsfw image me',''), nsfw=True)
+            return iurl
+
+        nsfwnth = re.compile('^nsfw image nth (\d+) (.*)')
+        matches = nsfwnth.search(message)
+        if matches:
+            return self.random_image(matches.group(2), rsz=1, pages=int(matches.group(1))-1, rand_result=False, nsfw=True)
+
         if 'image me' in message:
             iurl = self.random_image(message.replace('image me',''))
             return iurl
+
 
         if 'image first' in message:
             iurl = self.random_image(message.replace('image first',''), rsz=1, pages=0, rand_result=False)
