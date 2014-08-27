@@ -113,6 +113,8 @@ class MarkovBot(IRCBot):
                 payload['start'] = rsz * pages
             if nsfw:
                 payload['safe'] = 'off'
+            else:
+                payload['safe'] = 'active'
             payload['q'] = msg
             r = requests.get(gurl, params=payload)
             try:
@@ -196,45 +198,51 @@ class MarkovBot(IRCBot):
         # use a convenience method to strip out the "ping" portion of a message
         if self.is_ping(message):
             message = self.fix_ping(message)
-        
+
         if message.startswith('/'):
             return
 
         if message.endswith('?'):
             message = message[:-1]
-        
-        if 'nsfw image me' in message:
-            iurl = self.random_image(message.replace('nsfw image me',''), nsfw=True)
-            return iurl
 
-        nsfwnth = re.compile('^nsfw image nth (\d+) (.*)')
-        matches = nsfwnth.search(message)
+        # possible image search regex
+        imageRe = re.compile('^(nsfw )?image (me|nth|first|random)(.*)$', re.IGNORECASE)
+        matches = imageRe.search(message)
         if matches:
-            return self.random_image(matches.group(2), rsz=1, pages=int(matches.group(1))-1, rand_result=False, nsfw=True)
+            # defaults
+            rsz = 8
+            pages = 8
+            rand_result = True
+            image_search = matches.group(3)
 
-        if 'image me' in message:
-            iurl = self.random_image(message.replace('image me',''))
-            return iurl
+            # did message start with nsfw?
+            nsfw = matches.group(1) == 'nsfw '
 
+            if matches.group(2) == 'me':
+                # no change from defaults
+                'nothing'
+            elif matches.group(2) == 'first':
+                # only grab first result
+                rsz = 1
+                pages = 0
+                rand_result = False
+            elif matches.group(2) == 'random':
+                # use random text
+                image_search = ' '.join(random.choice(self.brain.keys()).split(self.separator))
+            elif matches.group(2) == 'nth':
+                # parse the number from the rest of the message
+                remaining = matches.group(3).split(' ')
+                pages = int(remaining[0]) - 1
+                image_search = ' '.join(remaining[1:])
+                rsz = 1
+                rand_result = False
 
-        if 'image first' in message:
-            iurl = self.random_image(message.replace('image first',''), rsz=1, pages=0, rand_result=False)
-            return iurl
-
-        nth = re.compile('^image nth (\d+) (.*)')
-        matches = nth.search(message)
-        if matches:
-            return self.random_image(matches.group(2), rsz=1, pages=int(matches.group(1))-1, rand_result=False)
-
-        if 'random image' in message:
-            # pick random chain from brain
-            random_msg = ' '.join(random.choice(self.brain.keys()).split(self.separator))
-            # image search on that
-            return random_msg + ": " + self.random_image(random_msg)
+            return image_search + ': ' + self.random_image(image_search, rsz=rsz, pages=pages, rand_result=rand_result, nsfw=nsfw)
 
         if 'meow bomb' in message:
             urls = []
             for i in range(0,5):
+                # don't full fetch the result to make it faster.  chances are most will work
                 urls.append(self.random_image("meow",fetch=False))
             return ' '.join(urls)
 
