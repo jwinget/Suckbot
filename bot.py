@@ -232,8 +232,8 @@ class MarkovBot(IRCBot):
             elif matches.group(2) == 'nth':
                 # parse the number from the rest of the message
                 remaining = matches.group(3).split(' ')
-                pages = int(remaining[0]) - 1
-                image_search = ' '.join(remaining[1:])
+                pages = int(remaining[1]) - 1
+                image_search = ' '.join(remaining[2:])
                 rsz = 1
                 rand_result = False
 
