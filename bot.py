@@ -42,6 +42,7 @@ class MarkovBot(IRCBot):
     separator = '-'
     stop_word = '\n'
     brainfile = 'combined.txt'
+    prev_msg = ''
     brain = {}
     
     def __init__(self, *args, **kwargs):
@@ -205,6 +206,10 @@ class MarkovBot(IRCBot):
         if message.endswith('?'):
             message = message[:-1]
 
+        if '!!' in message:
+            message = string.replace(message,'!!',self.prev_msg)
+
+
         # possible image search regex
         imageRe = re.compile('^(nsfw )?image (me|nth|first|random)(.*)$', re.IGNORECASE)
         matches = imageRe.search(message)
@@ -300,6 +305,8 @@ class MarkovBot(IRCBot):
         if len(messages):
             rand_index = random.randrange(len(messages))
             return messages[rand_index]
+
+        self.prev_msg = message
 
     def command_patterns(self):
         return (
