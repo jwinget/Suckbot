@@ -9,6 +9,7 @@ import yaml
 import os.path
 import requests
 import json
+import traceback
 
 #import lxml.html
 
@@ -42,7 +43,6 @@ class MarkovBot(IRCBot):
     separator = '-'
     stop_word = '\n'
     brainfile = 'combined.txt'
-    prev_msg = ''
     brain = {}
     
     def __init__(self, *args, **kwargs):
@@ -96,9 +96,9 @@ class MarkovBot(IRCBot):
             title = 'No title'
         return title
 
-    def random_image(self, msg, fetch=True, rsz=8, pages=5, rand_result=True, nsfw=False):
+    def random_image(self, msg, fetch=True, rsz=8, pages=5, rand_result=True, nsfw=False, animate=False):
         ''' Return a random google image '''
-        print "Random Image: msg = %s, fetch = %s, nsfw = %s, rsz = %s, pages = %s, rand = %s" % (msg, fetch, nsfw, rsz, pages, rand_result)
+        print "Random Image: msg = %s, fetch = %s, nsfw = %s, rsz = %s, pages = %s, rand = %s, animate = %s" % (msg, fetch, nsfw, rsz, pages, rand_result, animate)
         max_attempts = 5
         if rand_result:
             attempts = 0
@@ -116,6 +116,8 @@ class MarkovBot(IRCBot):
                 payload['safe'] = 'off'
             else:
                 payload['safe'] = 'active'
+            if animate:
+                payload['imgtype'] = 'animated'
             payload['q'] = msg
             r = requests.get(gurl, params=payload)
             try:
@@ -127,17 +129,19 @@ class MarkovBot(IRCBot):
                 # Might eliminate some invalid extension false positives
                 url = results[0][u'url']
                 valid_suffixes = ('.gif','.jpg','.jpeg','.png')
-                if not url.lower().endswith(valid_suffixes):
-                    continue;
+                #if not url.lower().endswith(valid_suffixes):
+                #    print "Bad file suffix for URL: " + url
+                #    continue;
                 if fetch:
                   response = requests.head(url)
                   if response.status_code != 200:
-                      print "non-200 response, got "+response.getcode()+": "+url
+                      print "Bad status code: got %d for %s" % (response.status_code, url )
                       continue
-                return url
+                return url + ""
             except:
                 e = sys.exc_info()[0]
-                print "Error grabbing images: %s" % e
+                print "Error grabbing images"
+                print traceback.format_exc()
         return 'Unable to find image'
 
     def generate_message(self, seed):
@@ -206,12 +210,8 @@ class MarkovBot(IRCBot):
         if message.endswith('?'):
             message = message[:-1]
 
-        if '!!' in message:
-            message = string.replace(message,'!!',self.prev_msg)
-
-
         # possible image search regex
-        imageRe = re.compile('^(nsfw )?image (me|nth|first|random)(.*)$', re.IGNORECASE)
+        imageRe = re.compile('^(nsfw )?(image|animate) (me|nth|first|random)(.*)$', re.IGNORECASE)
         matches = imageRe.search(message)
         if matches:
             # defaults
@@ -219,30 +219,34 @@ class MarkovBot(IRCBot):
             pages = 8
             rand_result = True
             image_search = matches.group(3)
+            animate = False
 
             # did message start with nsfw?
             nsfw = matches.group(1) == 'nsfw '
 
-            if matches.group(2) == 'me':
+            if matches.group(2) == 'animate':
+                animate = True
+
+            if matches.group(3) == 'me':
                 # no change from defaults
                 'nothing'
-            elif matches.group(2) == 'first':
+            elif matches.group(3) == 'first':
                 # only grab first result
                 rsz = 1
                 pages = 0
                 rand_result = False
-            elif matches.group(2) == 'random':
+            elif matches.group(3) == 'random':
                 # use random text
                 image_search = ' '.join(random.choice(self.brain.keys()).split(self.separator))
-            elif matches.group(2) == 'nth':
+            elif matches.group(3) == 'nth':
                 # parse the number from the rest of the message
-                remaining = matches.group(3).split(' ')
+                remaining = matches.group(4).split(' ')
                 pages = int(remaining[1]) - 1
                 image_search = ' '.join(remaining[2:])
                 rsz = 1
                 rand_result = False
 
-            return image_search + ': ' + self.random_image(image_search, rsz=rsz, pages=pages, rand_result=rand_result, nsfw=nsfw)
+            return image_search + ': ' + self.random_image(image_search, rsz=rsz, pages=pages, rand_result=rand_result, nsfw=nsfw, animate=animate)
 
         if 'meow bomb' in message:
             urls = []
@@ -305,8 +309,6 @@ class MarkovBot(IRCBot):
         if len(messages):
             rand_index = random.randrange(len(messages))
             return messages[rand_index]
-
-        self.prev_msg = message
 
     def command_patterns(self):
         return (
