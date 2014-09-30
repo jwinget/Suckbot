@@ -218,7 +218,7 @@ class MarkovBot(IRCBot):
             rsz = 8
             pages = 8
             rand_result = True
-            image_search = matches.group(3)
+            image_search = matches.group(4)
             animate = False
 
             # did message start with nsfw?
