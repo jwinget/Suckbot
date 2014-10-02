@@ -30,6 +30,8 @@ port = config['irc']['port']
 chans = config['irc']['channels']
 nick = config['bot']['name']
 
+last_msg = ''
+
 class MarkovBot(IRCBot):
     """
     http://code.activestate.com/recipes/194364-the-markov-chain-algorithm/
@@ -212,6 +214,9 @@ class MarkovBot(IRCBot):
 
         # possible image search regex
         imageRe = re.compile('^(nsfw )?(image|animate) (me|nth|first|random)(.*)$', re.IGNORECASE)
+        if '!!' in message:
+            global last_msg
+            message = message.replace('!!', last_msg)
         matches = imageRe.search(message)
         if matches:
             # defaults
@@ -268,6 +273,7 @@ class MarkovBot(IRCBot):
             return 'POWERED BY OUR FANS'
 
         if not say_something:
+            last_msg = message
             # write out to brain file
             with open(self.brainfile, 'a') as f:
                 f.write(message + '\n')
