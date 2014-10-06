@@ -251,7 +251,10 @@ class MarkovBot(IRCBot):
                 rsz = 1
                 rand_result = False
 
-            return image_search + ': ' + self.random_image(image_search, rsz=rsz, pages=pages, rand_result=rand_result, nsfw=nsfw, animate=animate)
+            try:
+                return image_search + ': ' + self.random_image(image_search, rsz=rsz, pages=pages, rand_result=rand_result, nsfw=nsfw, animate=animate)
+            except:
+                return 'HI MY NAME IS CHURCHY AND I LIKE BREAKING THINGS'
 
         if 'meow bomb' in message:
             urls = []
