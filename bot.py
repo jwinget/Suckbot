@@ -4,12 +4,13 @@ import string
 import itertools
 import urllib2
 import sys
-from BeautifulSoup import BeautifulSoup
+from BeautifulSoup import BeautifulSoup, BeautifulStoneSoup
 import yaml
 import os.path
 import requests
 import json
 import traceback
+from unidecode import unidecode
 
 #import lxml.html
 
@@ -90,8 +91,10 @@ class MarkovBot(IRCBot):
 
     def get_pagetitle(self, url):
         try:
-            soup = BeautifulSoup(urllib2.urlopen(url))
-            title = soup.title.string.encode('utf-8', errors='ignore')
+            soup = BeautifulSoup(urllib2.urlopen(url), convertEntities=BeautifulSoup.HTML_ENTITIES)
+            titleTag = soup.html.head.title
+            title = unidecode(titleTag.string)
+            #title = soup.title.string.encode('utf-8', errors='ignore')
             #t = lxml.html.parse(url)
             #title = t.find(".//title").text.encode('utf-8', errors='ignore')
         except:
