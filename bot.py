@@ -41,10 +41,14 @@ class POSifiedText(markovify.Text):
     """
     Generates a better markov model, but is slower
     """
+    def sentence_split(self, text):
+        return re.split(r"\s*\n\s*", text) # split on newlines instead of punctuation
+
     def word_split(self, sentence):
         words = re.split(self.word_split_pattern, sentence.decode('utf8','ignore'))
         words = [ '::'.join(tag) for tag in nltk.pos_tag(words) ]
         return words
+
     def word_join(self, words):
         sentence = " ".join(word.split("::")[0] for word in words)
         return sentence
@@ -73,9 +77,11 @@ class MarkovBot(IRCBot):
         return re.sub('[\"\']', '', message.lower())
 
     def parse_brain(self, brainfile):
+        print('Parsing brain')
         with open(brainfile, 'rb') as f:
             text = f.read()
         self.text_model = POSifiedText(text)
+        print(self.text_model)
 
     def get_pagetitle(self, url):
         try:
@@ -256,7 +262,7 @@ class MarkovBot(IRCBot):
                 f.write(message + '\n')
 
             # add new line into his brain
-            text_model += markovify.Text(message)
+            #self.text_model += POSifiedText(message)
 
         if say_something:
             return self.generate_message(self.text_model)
