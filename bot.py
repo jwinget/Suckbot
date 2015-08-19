@@ -11,10 +11,14 @@ import requests
 import json
 import traceback
 from unidecode import unidecode
-
-#import lxml.html
+import markovify
+import nltk
+import numpy
 
 from irc import IRCBot, run_bot
+
+reload(sys)
+sys.setdefaultencoding('utf-8')
 
 g_chain_length = 2
 
@@ -33,6 +37,18 @@ nick = config['bot']['name']
 
 last_msg = ''
 
+class POSifiedText(markovify.Text):
+    """
+    Generates a better markov model, but is slower
+    """
+    def word_split(self, sentence):
+        words = re.split(self.word_split_pattern, sentence.decode('utf8','ignore'))
+        words = [ '::'.join(tag) for tag in nltk.pos_tag(words) ]
+        return words
+    def word_join(self, words):
+        sentence = " ".join(word.split("::")[0] for word in words)
+        return sentence
+
 class MarkovBot(IRCBot):
     """
     http://code.activestate.com/recipes/194364-the-markov-chain-algorithm/
@@ -40,65 +56,47 @@ class MarkovBot(IRCBot):
     """
     chain_length = g_chain_length
     chattiness = .01
-    max_words = 30
-    messages_to_generate = 5
     prefix = 'irc'
     separator = '-'
     stop_word = '\n'
     brainfile = 'combined.txt'
-    brain = {}
+    text_model = None
     
     def __init__(self, *args, **kwargs):
         super(MarkovBot, self).__init__(*args, **kwargs)
         self.parse_brain(self.brainfile)
-        
+
     def make_key(self, k):
         return '-'.join((self.prefix, k))
     
     def sanitize_message(self, message):
         return re.sub('[\"\']', '', message.lower())
 
-    def split_message(self, message):
-        # split the incoming message into words, i.e. ['what', 'up', 'bro']
-        words = message.split()
-        
-        # if the message is any shorter, it won't lead anywhere
-        if len(words) > self.chain_length:
-            
-            # add some stop words onto the message
-            # ['what', 'up', 'bro', '\x02']
-            words.append(self.stop_word)
-            
-            # len(words) == 4, so range(4-2) == range(2) == 0, 1, meaning
-            # we return the following slices: [0:3], [1:4]
-            # or ['what', 'up', 'bro'], ['up', 'bro', '\x02']
-            for i in range(len(words) - self.chain_length):
-                yield words[i:i + self.chain_length + 1]
-
     def parse_brain(self, brainfile):
         with open(brainfile, 'rb') as f:
-            for line in f:
-                for words in self.split_message(self.sanitize_message(line)):
-                    # grab everything but the last word
-                    key = self.separator.join(words[:-1])
-                    
-                    # add the last word to the set
-                    try:
-                        if words[-1] not in self.brain[key]:
-                            self.brain[key].append(words[-1])
-                    except KeyError:
-                        self.brain[key] = [words[-1]]
+            text = f.read()
+        self.text_model = POSifiedText(text)
 
     def get_pagetitle(self, url):
         try:
-            soup = BeautifulSoup(urllib2.urlopen(url), convertEntities=BeautifulSoup.HTML_ENTITIES)
+            hdr = {'User-Agent': 'Mozilla/5.0', 'Accept': 'text/html,application/xhtml+xml;q=0.9,*/*;q=0.8'}
+            req = urllib2.Request(url,headers=hdr)
+            page = urllib2.urlopen(req)
+            soup = BeautifulSoup(page, convertEntities=BeautifulSoup.HTML_ENTITIES)
             titleTag = soup.html.head.title
-            title = unidecode(titleTag.string)
-            #title = soup.title.string.encode('utf-8', errors='ignore')
-            #t = lxml.html.parse(url)
-            #title = t.find(".//title").text.encode('utf-8', errors='ignore')
         except:
-            title = 'No title'
+            title = ""
+            print 'nobots '+title
+            return title
+        try:
+            title = unidecode(titleTag.string)
+            print 'success '+title
+        except:
+            try:
+                title = unicode.decode(titleTag.string)
+                print 'unicode '+title
+            except:
+                title = 'No title'
         return title
 
     def random_image(self, msg, fetch=True, rsz=8, pages=5, rand_result=True, nsfw=False, animate=False):
@@ -149,47 +147,9 @@ class MarkovBot(IRCBot):
                 print traceback.format_exc()
         return 'Unable to find image'
 
-    def generate_message(self, seed):
-        key = seed
-        
-        # keep a list of words we've seen
-        gen_words = []
-        
-        # only follow the chain so far
-        for i in xrange(self.max_words):
-        
-            # split the key on the separator to extract the words -- the key
-            # might look like "this\x01is" and split out into ['this', 'is']
-            words = key.split(self.separator)
-            
-            # add the word to the list of words in our generated message
-            gen_words.append(words[0])
-            
-            # get a new word that lives at this key -- if none are present we've
-            # reached the end of the chain and can bail
-            try:
-                choices = (self.brain[key])
-                if len(choices) > 0:
-                    end_it = False
-                    if '\n' in choices and random.randrange(100) < 4:
-                        end_it = True
-                    if not end_it:
-                        next_word = random.choice(choices)
-                    else:
-                        next_word = '\n'
-                else:
-                    next_word = '\n'
-            except KeyError:
-                break
-            if next_word == self.stop_word:
-                # add the last word and break
-                gen_words.append(words[1])
-                break
-         
-            # create a new key combining the end of the old one and the next_word
-            key = self.separator.join(words[-1:] + [next_word])
-
-        return ' '.join(gen_words)
+    def generate_message(self, text_model):
+        sentence = text_model.make_short_sentence(140)
+        return sentence
 
     def log(self, sender, message, channel):
         # speak only when spoken to, or when the spirit moves me
@@ -266,6 +226,13 @@ class MarkovBot(IRCBot):
                 urls.append(self.random_image("meow",fetch=False))
             return ' '.join(urls)
 
+        if 'i.imgur' in message and 'http' not in message:
+            say_something = True
+            parts = message.split()
+            for p in parts:
+                if 'imgur' in p:
+                    return('lrn2url: http://'+p)
+
         if 'http' in message:
             say_something = True
             parts = message.split()
@@ -278,6 +245,10 @@ class MarkovBot(IRCBot):
         if turbine.search(message):
             return 'POWERED BY OUR FANS'
 
+        dk = re.compile('draftkings', re.IGNORECASE)
+        if dk.search(message):
+            return 'SPORTS'
+
         if not say_something:
             last_msg = message
             # write out to brain file
@@ -285,42 +256,11 @@ class MarkovBot(IRCBot):
                 f.write(message + '\n')
 
             # add new line into his brain
-            for words in self.split_message(self.sanitize_message(message)):
-                # grab everything but the last word
-                key = self.separator.join(words[:-1])
-                
-                # add the last word to the set
-                try:
-                    if words[-1] not in self.brain[key]:
-                        self.brain[key].append(words[-1])
-                except KeyError:
-                    self.brain[key] = [words[-1]]
+            text_model += markovify.Text(message)
 
-        # old method of finding candidate chains
-        #for words in self.split_message(self.sanitize_message(message)):
-
-        # split up the incoming message into chunks that are 1 word longer than
-        # the size of the chain, e.g. ['what', 'up', 'bro'], ['up', 'bro', '\x02']
-        for words in itertools.permutations(self.sanitize_message(message).split(),g_chain_length):
-            # grab everything but the last word
-            key = self.separator.join(words)
-
-            # if we should say something, generate some messages based on what
-            # was just said and select the longest, then add it to the list
-            if say_something:
-                best_message = ''
-                for i in range(self.messages_to_generate):
-                    generated = self.generate_message(seed=key)
-                    if len(generated) > len(best_message):
-                        best_message = generated
+        if say_something:
+            return self.generate_message(self.text_model)
                
-                # throw out messages 2 words or shorter
-                if best_message and len(best_message.split()) > g_chain_length:
-                    messages.append(best_message)
-        
-        if len(messages):
-            rand_index = random.randrange(len(messages))
-            return messages[rand_index]
 
     def command_patterns(self):
         return (
